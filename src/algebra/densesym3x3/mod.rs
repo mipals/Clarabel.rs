@@ -144,7 +144,7 @@ where
         true
     }
 
-    // Unrolled 3x3 forward/backward substition for a Cholesky factor
+    // Unrolled 3x3 forward/backward substitution for a Cholesky factor
 
     pub fn cholesky_3x3_explicit_solve(&self, x: &mut [T], b: &[T]) {
         let L = self;
