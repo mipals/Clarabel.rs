@@ -7,6 +7,7 @@ use crate::solver::core::CoreSettings;
 use libloading::{Library, library_filename, Symbol};
 use libloading::os::unix::Symbol as RawSymbol;
 use std::ffi::{c_int,c_void};
+use std::marker::PhantomData;
 
 // Defining loading 
 type Init = unsafe extern "C" fn(
