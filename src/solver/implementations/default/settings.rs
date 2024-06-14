@@ -262,6 +262,8 @@ fn validate_direct_solve_method(direct_solve_method: &str) -> Result<(), String>
         "qdldl" => Ok(()),
         #[cfg(feature = "faer-sparse")]
         "faer" => Ok(()),
+        #[cfg(feature = "panua")]
+        "panua" => Ok(()),
         _ => Err(format!(
             "Invalid direct_solve_method: {:?}",
             direct_solve_method

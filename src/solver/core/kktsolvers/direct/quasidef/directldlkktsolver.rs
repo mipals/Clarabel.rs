@@ -3,6 +3,9 @@
 #[cfg(feature = "faer-sparse")]
 use super::ldlsolvers::faer_ldl::*;
 
+#[cfg(feature = "panua")]
+use super::ldlsolvers::panua::*;
+
 use super::ldlsolvers::qdldl::*;
 use super::*;
 use crate::solver::core::kktsolvers::KKTSolver;
@@ -352,6 +355,11 @@ where
         "faer" => {
             kktshape = FaerDirectLDLSolver::<T>::required_matrix_shape();
             ldlptr = |M, D, S| Box::new(FaerDirectLDLSolver::<T>::new(M, D, S));
+        }
+        #[cfg(feature = "panua")]
+        "panua" => {
+            kktshape = PanuaPardisoDirectLDLSolver::<T>::required_matrix_shape();
+            ldlptr = |M, D, S| Box::new(PanuaPardisoDirectLDLSolver::<T>::new(M, D, S));
         }
         _ => {
             panic! {"Unrecognized LDL solver type"};

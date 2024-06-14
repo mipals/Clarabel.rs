@@ -17,12 +17,12 @@ resolver = "1"
 [dependencies]
 lazy_static    = "1.4"
 num-traits     = "0.2"
-derive_builder = "0.11"
-enum_dispatch  = "0.3.8"
+derive_builder = "0.20"
+enum_dispatch  = "0.3.13"
 amd            = "0.2.2"
 thiserror      = "1.0"
 cfg-if         = "1.0"
-itertools      = "0.11"
+itertools      = "0.13"
 
 # -------------------------------
 # features
@@ -60,6 +60,9 @@ wasm = ["dep:web-time"]
 #compile with faer supernodal solver option
 faer-sparse = ["dep:faer", "dep:faer-entity"]
 
+#for loading
+panua = ["dep:libloading"]
+
 # -------------------------------
 # SDP configuration
 # -------------------------------
@@ -92,6 +95,9 @@ optional = true
 version = "0.19"
 optional = true 
 
+[dependencies.libloading]
+version = "0.8"
+optional = true
 
 # -------------------------------
 # examples
@@ -137,6 +143,9 @@ path = "examples/rust/example_json.rs"
 required-features = ["serde"]
 
 
+[[example]]
+name = "eigen"
+path = "examples/rust/example_eigen.rs"
 
 
 # -------------------------------
