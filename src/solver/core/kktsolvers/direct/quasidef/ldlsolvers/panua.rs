@@ -153,9 +153,7 @@ where
         for j in 0..ja.len() {
             ja[j] = 1 + KKT.rowval[j] as i32;
         }
-        // println!("len={}",ia[0]); // Have to be 1
-        // println!("len={}",ja[0]); // Have to be 1
-
+        
 
         let mut dummy: Vec<f64> = vec![0.0; 1]; // Not used in the symbolic factorization
         let mut nhrs = 1;
@@ -179,13 +177,6 @@ where
                 dparm.as_mut_ptr(),
             )
         };
-
-        println!("iparm11 = {}", iparm[11]); // This should be 8??
-
-        println!("Number of nonzeros in factors={}", iparm[17]);
-
-        println!("{error}");
-
         
         Self {
             ia,
