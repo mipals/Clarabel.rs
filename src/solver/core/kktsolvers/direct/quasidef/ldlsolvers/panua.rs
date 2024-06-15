@@ -3,9 +3,11 @@
 use crate::algebra::*;
 use crate::solver::core::kktsolvers::direct::DirectLDLSolver;
 use crate::solver::core::CoreSettings;
-
 use libloading::{Library, library_filename, Symbol};
+#[cfg(target_family="unix")]
 use libloading::os::unix::Symbol as RawSymbol;
+#[cfg(target_family="windows")]
+use libloading::os::windows::Symbol as RawSymbol;
 use std::ffi::{c_int,c_void};
 use std::marker::PhantomData;
 
