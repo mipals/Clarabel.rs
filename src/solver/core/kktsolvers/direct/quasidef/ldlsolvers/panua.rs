@@ -1,17 +1,18 @@
-#![allow(non_snake_case)]
 #![allow(dead_code)]
 use crate::algebra::*;
 use crate::solver::core::kktsolvers::direct::DirectLDLSolver;
 use crate::solver::core::CoreSettings;
 use libloading::{Library, library_filename, Symbol};
+
+// What is the big difference between using symbol and RawSymbol?
 #[cfg(target_family="unix")]
 use libloading::os::unix::Symbol as RawSymbol;
 #[cfg(target_family="windows")]
 use libloading::os::windows::Symbol as RawSymbol;
 use std::ffi::{c_int,c_void};
-use std::marker::PhantomData;
+use std::marker::PhantomData; // Maybe one does not need this?
 
-// Defining loading 
+// Defining Functions
 type Init = unsafe extern "C" fn(
                             pt: *mut c_void,
                             mtype: *mut c_int,
@@ -39,7 +40,7 @@ type Pardiso = unsafe extern "C" fn(
                             dparm: *mut f64);
 
 struct PardisoSolver {
-    library: Library,
+    library: Library, // We need to this so taht the Symbols stay in scope?
     pardisoinit: RawSymbol<Init>,
     pardiso: RawSymbol<Pardiso>,
 }
@@ -47,7 +48,7 @@ struct PardisoSolver {
 impl PardisoSolver{
     unsafe fn new() -> PardisoSolver {
         
-        // Load library at runtime
+        // Load library at runtime. 
         let library = unsafe {Library::new(library_filename("pardiso")).unwrap()};
         // Load pardisoinit function
         let pardisoinit: Symbol<Init> = unsafe{library.get(b"pardisoinit").unwrap()};
@@ -65,6 +66,7 @@ impl PardisoSolver{
 }
 
 pub struct PanuaPardisoDirectLDLSolver<T: FloatT> {
+    // 1-indexed indices as i32.
     ia: Vec<i32>, // 1-indexed rowptr   (CSR format)
     ja: Vec<i32>, // 1-indexed columval (CSR format)
 
@@ -75,20 +77,20 @@ pub struct PanuaPardisoDirectLDLSolver<T: FloatT> {
     iparm: Vec<i32>,
     dparm: Vec<f64>,
 
-    mtype: i32,
+    mtype: i32, // Should always be -2 (Real and Symmetric indefinite)
 
-    msglvl: i32,
+    msglvl: i32, // Standardly 0. However, set to 1 for debugging
     
-    maxfct: i32,
-    mnum: i32,
+    maxfct: i32, // Number of saved factorizations. Standard is to set to 1.
+    mnum: i32,   // Which factorization to use. Standard is to set to 1.
 
-    n: i32,
+    n: i32,     // Number of equations. Should be equal to number of rows in KKT
 
-    perm: Vec<i32>,
+    perm: Vec<i32>, // Possibly use specified permutation. For now we do not allow this.
 
-    error: i32,
+    error: i32, 
 
-    phantom: PhantomData<T>,
+    phantom: PhantomData<T>, // So that clippy does not complain of unsued "T"
 }
 
 impl<T> PanuaPardisoDirectLDLSolver<T>
@@ -100,35 +102,22 @@ where
 
         assert!(dim == KKT.ncols(), "KKT matrix is not square");
 
-        // occasionally we find that the default AMD parameters give a bad ordering, particularly
-        // for some big matrices.  In particular, KKT conditions for QPs are sometimes worse
-        // than their SOC counterparts for very large problems.   This is because the SOC form
-        // is artificially "big", with extra rows, so the dense row threshold is effectively a
-        // different value.   We fix a bit more generous AMD_DENSE here, which should perhaps
-        // be user-settable.
-
-        //make a logical factorization to fix memory allocations
-
-        let mut pt: Vec<isize> = vec![0; 64];
-        /* Pardiso control parameters. */
-        let mut iparm: Vec<i32> = vec![0; 64];
-        let mut dparm: Vec<f64> = vec![0.0; 64];
-
+        let mut pt: Vec<isize> = vec![0; 64];    // Point to handle
+        let mut iparm: Vec<i32> = vec![0; 64];   // Integer parameters
+        let mut dparm: Vec<f64> = vec![0.0; 64]; // Double parameters
         let mut mtype: i32 = -2; // Real and Symmetric indefinite (Real Sym. Quasi-definite)
-        
-        let mut phase: i32 = 11; // Analysis/Symbolic phase
+        let mut phase: i32 = 11; // Symbolic phase
         let mut msglvl: i32 = 0; // No message
-        
         let mut maxfct: i32 = 1; // Only one factorization at a time
-        let mut mnum: i32 = 1;  // We use the only factorization
-        
+        let mut mnum: i32 = 1;   // We use the first (and only) factorization
         let mut n: i32 = KKT.m as i32; // no. equations i.e. no. rows in KKT
-        
         let mut error: i32 = 0;
-        // Initialize Pardiso
+        let mut solver = 0; // Sparse Direct Solver
+
+        // Create PardisoSolver
         let pardiso_solver = unsafe {PardisoSolver::new()};
         
-        let mut solver = 0; // Sparse Direct Solver
+        // Initialize pt handle, iparm, and dparm
         unsafe {(pardiso_solver.pardisoinit)(
                 pt.as_mut_ptr() as *mut _ as *mut c_void,
                 &mut mtype,
@@ -139,16 +128,12 @@ where
             )
         };
         
-        iparm[8 - 1] = -99; // No IR - Has to be set after init
-        // Perform symbolic 
-        // let mut perm: Vec<i32> = vec![0; n];
-        // For now we do not allow user-given permutation
+        iparm[8 - 1] = -99; // No IR - Has to be set after init!
+        // For now we do not allow user specified permutation
         let mut perm: Vec<i32> = vec![0; 1];    
-        // The entries have to be one-indexed.
+        // Create new one-indexed row and column pointers
         let mut ia: Vec<i32> = vec![0; KKT.colptr.len()];
         let mut ja: Vec<i32> = vec![0; KKT.rowval.len()];
-
-
         for i in 0..ia.len() {
             ia[i] = 1 + KKT.colptr[i] as i32;
         }
@@ -156,8 +141,9 @@ where
             ja[j] = 1 + KKT.rowval[j] as i32;
         }
         
-
-        let mut dummy: Vec<f64> = vec![0.0; 1]; // Not used in the symbolic factorization
+        // Perform symbolic factorization
+        // RHS and X are not used in the symbolic factorization so we create dummies
+        let mut dummy: Vec<f64> = vec![0.0; 1];  
         let mut nhrs = 1;
         unsafe {(pardiso_solver.pardiso)(
                 pt.as_mut_ptr() as *mut _ as *mut c_void,
@@ -204,8 +190,6 @@ where
     T: FloatT,
 {
     fn update_values(&mut self, _index: &[usize], _values: &[T]) {
-        //Update values that are stored within
-        //the reordered copy held internally by QDLDL.
         // No-op
     }
 
@@ -214,16 +198,13 @@ where
     }
 
     fn offset_values(&mut self, _index: &[usize], _offset: T, _signs: &[i8]) {
-        // self.factors.offset_values(index, offset, signs);
         // No-op
     }
 
     fn solve(&mut self, _kkt: &CscMatrix<T>, x: &mut [T], b: &[T]) {
-        // NB: QDLDL solves in place
-        // x.copy_from(b);
-        // self.factors.solve(x);
-        let mut phase = 33; // Solve and IR (but IR is disabled!)
-        let mut nrhs = 1;   // For now only allow a single rhs
+        
+        let mut phase = 33; // Solve phase (No IR as iparm[8-1]=-99)
+        let mut nrhs = 1;   // Only one RHS
 
         unsafe {
             (self.pardiso_solver.pardiso)(
@@ -249,12 +230,10 @@ where
     }
 
     fn refactor(&mut self, _kkt: &CscMatrix<T>) -> bool {
-        //QDLDL has maintained its own version of the permuted
-        //KKT matrix through custom update/scale/offset methods,
-        //so we ignore the KKT matrix provided by the caller
-        let mut phase = 22; // Numerical Factorization
-        let mut nrhs = 1;   // dummy
-        let mut dummy: Vec<f64> = vec![0.0; 1]; // Not used in the symbolic factorization
+        
+        let mut phase = 22; // Perform Numerical Factorization
+        let mut nrhs = 1;   // Number of RHS. Does not matter in a numerical factorization
+        let mut dummy: Vec<f64> = vec![0.0; 1]; // Not used in the numerical factorization
         unsafe {
             (self.pardiso_solver.pardiso)(
                 self.pt.as_mut_ptr() as *mut _ as *mut c_void,
@@ -264,8 +243,8 @@ where
                 &mut phase,
                 &mut self.n,
                 _kkt.nzval.as_ptr()  as *const _ as *const c_void,
-                self.ia.as_ptr() as *const _ as *const i32, // Need to change to 1-indexing?
-                self.ja.as_ptr() as *const _ as *const i32, // Need to change to 1-indexing?
+                self.ia.as_ptr() as *const _ as *const i32, 
+                self.ja.as_ptr() as *const _ as *const i32,
                 self.perm.as_mut_ptr(),
                 &mut nrhs,
                 self.iparm.as_mut_ptr(),
@@ -276,19 +255,33 @@ where
                 self.dparm.as_mut_ptr(),
             )
         }
-        // if self.error == 0 {
-        //     return true;
-        // } else {
-        //     return false;
-        // }
-        true
+        //    0No error.
+        //   -1 Input inconsistent.
+        //   -2 Not enough memory.
+        //   -3 Reordering problem.
+        //   -4 Zero pivot, numerical fact. or iterative refinement problem.
+        //   -5 Unclassified (internal) error.
+        //   -6 Preordering failed (matrix types 11, 13 only).
+        //   -7 Diagonal matrix problem.
+        //   -8 32-bit integer overflow problem.
+        //  -10 No license file pardiso.lic found.
+        //  -11 License is expired.
+        //  -12 Wrong username or hostname.
+        // -100 Reached maximum number of Krylov-subspace iteration in iterative solver. 
+        // -101 No sufficient convergence in Krylov-subspace iteration within 25 iterations.
+        // -102 Error in Krylov-subspace iteration.
+        // -103 Break-Down in Krylov-subspace iteration.
+        if self.error == 0 {
+            return true;
+        } else {
+            return false;
+        }
+
     }
 
     fn required_matrix_shape() -> MatrixTriangle {
-        // Tril since we want triu of a CSR matrix and KKT is CSC
+        // Panua needs triu of a CSR matrix and KKT is CSC. 
+        // Making KKT Tril manes that we can get triu CSR by swapping rows/cols of tril-KKT.
         MatrixTriangle::Tril
     }
 }
-
-
-

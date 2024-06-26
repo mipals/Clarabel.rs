@@ -17,12 +17,12 @@ resolver = "1"
 [dependencies]
 lazy_static    = "1.4"
 num-traits     = "0.2"
-derive_builder = "0.20"
-enum_dispatch  = "0.3.13"
+derive_builder = "0.11"
+enum_dispatch  = "0.3.8"
 amd            = "0.2.2"
 thiserror      = "1.0"
 cfg-if         = "1.0"
-itertools      = "0.13"
+itertools      = "0.11"
 
 # -------------------------------
 # features
@@ -144,8 +144,13 @@ required-features = ["serde"]
 
 
 [[example]]
-name = "eigen"
-path = "examples/rust/example_eigen.rs"
+name = "optum"
+path = "examples/rust/example_optum.rs"
+
+[[example]]
+name = "drake"
+path = "examples/rust/example_drake.rs"
+required-features = ["sdp"]
 
 
 # -------------------------------
@@ -206,11 +211,10 @@ features = ["sdp","sdp-mkl"]
 
 [dependencies.web-time]
 optional = true
-version = "0.2.3"
+version = "1"
 
 # ------------------------------
 # testing, benchmarking etc 
 # ------------------------------
 [dev-dependencies]
 tempfile = "3"
-
