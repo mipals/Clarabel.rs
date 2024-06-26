@@ -184,7 +184,7 @@ where
     fn reset(&mut self, timers: &mut Timers);
 
     /// Final convergence checks, e.g. for "almost" convergence cases
-    fn post_process(&mut self, residuals: &Self::R, settings: &Self::SE);
+    fn post_process(&mut self, residuals: &Self::R, variables: &Self::V, settings: &Self::SE);
 
     /// Compute final values before solver termination
     fn finalize(&mut self, timers: &mut Timers);
@@ -199,7 +199,7 @@ where
     );
 
     /// Return `true` if termination conditions have been reached.
-    fn check_termination(&mut self, residuals: &Self::R, settings: &Self::SE, iter: u32) -> bool;
+    fn check_termination(&mut self, residuals: &Self::R, variables: &Self::V, settings: &Self::SE, iter: u32) -> bool;
 
     // save and recover prior iterates
     fn save_prev_iterate(&mut self, variables: &Self::V, prev_variables: &mut Self::V);

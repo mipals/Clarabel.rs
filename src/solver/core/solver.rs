@@ -254,7 +254,7 @@ where
                 self.info.print_status(&self.settings).unwrap();
             }}
 
-            let isdone = self.info.check_termination(&self.residuals, &self.settings, iter);
+            let isdone = self.info.check_termination(&self.residuals, &self.variables, &self.settings, iter);
 
             // check for termination due to slow progress and update strategy
             if isdone{
@@ -263,7 +263,6 @@ where
                         StrategyCheckpoint::Update(s) => {scaling = s; continue}
                     }
             }  // allows continuation if new strategy provided
-
 
             // update the scalings
             // --------------
@@ -389,7 +388,7 @@ where
 
         timeit! {timers => "post-process"; {
             //check for "almost" convergence case and then extract solution
-            self.info.post_process(&self.residuals, &self.settings);
+            self.info.post_process(&self.residuals, &self.variables, &self.settings);
             self.solution
                 .post_process(&self.data, &mut self.variables, &self.info, &self.settings);
         }}

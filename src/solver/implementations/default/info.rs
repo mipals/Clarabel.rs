@@ -59,7 +59,7 @@ where
         timers.reset_timer("solve");
     }
 
-    fn post_process(&mut self, residuals: &DefaultResiduals<T>, settings: &DefaultSettings<T>) {
+    fn post_process(&mut self, residuals: &DefaultResiduals<T>, variables: &DefaultVariables<T>, settings: &DefaultSettings<T>) {
         // if there was an error or we ran out of time
         // or iterations, check for partial convergence
 
@@ -67,7 +67,7 @@ where
             || matches!(self.status, SolverStatus::MaxIterations)
             || matches!(self.status, SolverStatus::MaxTime)
         {
-            self.check_convergence_almost(residuals, settings);
+            self.check_convergence_almost(residuals, variables, settings);
         }
     }
 
@@ -147,12 +147,13 @@ where
     fn check_termination(
         &mut self,
         residuals: &DefaultResiduals<T>,
+        variables: &DefaultVariables<T>,
         settings: &DefaultSettings<T>,
         iter: u32,
     ) -> bool {
         //  optimality or infeasibility
         // ---------------------
-        self.check_convergence_full(residuals, settings);
+        self.check_convergence_full(residuals, variables, settings);
 
         //  poor progress
         // ----------------------
@@ -239,6 +240,7 @@ where
     fn check_convergence_full(
         &mut self,
         residuals: &DefaultResiduals<T>,
+        variables: &DefaultVariables<T>,
         settings: &DefaultSettings<T>,
     ) {
         // "full" tolerances
@@ -255,6 +257,7 @@ where
 
         self.check_convergence(
             residuals,
+            variables,
             tol_gap_abs,
             tol_gap_rel,
             tol_feas,
@@ -270,6 +273,7 @@ where
     fn check_convergence_almost(
         &mut self,
         residuals: &DefaultResiduals<T>,
+        variables: &DefaultVariables<T>,
         settings: &DefaultSettings<T>,
     ) {
         // "almost" tolerances
@@ -286,6 +290,7 @@ where
 
         self.check_convergence(
             residuals,
+            variables,
             tol_gap_abs,
             tol_gap_rel,
             tol_feas,
@@ -302,6 +307,7 @@ where
     fn check_convergence(
         &mut self,
         residuals: &DefaultResiduals<T>,
+        variables: &DefaultVariables<T>,
         tol_gap_abs: T,
         tol_gap_rel: T,
         tol_feas: T,
@@ -315,10 +321,11 @@ where
         if self.ktratio <= T::one() && self.is_solved(tol_gap_abs, tol_gap_rel, tol_feas) {
             self.status = solved_status;
         //PJG hardcoded factor 1000 here should be fixed
-        } else if self.ktratio > tol_ktratio.recip() * (1000.0).as_T() {
-            if self.is_primal_infeasible(residuals, tol_infeas_abs, tol_infeas_rel) {
+        // } else if self.ktratio > 1000.0*tol_ktratio.recip() {
+        } else if self.ktratio > tol_ktratio.recip() {
+            if self.is_primal_infeasible(residuals, variables, tol_infeas_abs, tol_infeas_rel) {
                 self.status = pinf_status;
-            } else if self.is_dual_infeasible(residuals, tol_infeas_abs, tol_infeas_rel) {
+            } else if self.is_dual_infeasible(residuals, variables, tol_infeas_abs, tol_infeas_rel) {
                 self.status = dinf_status;
             }
         }
@@ -333,20 +340,24 @@ where
     fn is_primal_infeasible(
         &self,
         residuals: &DefaultResiduals<T>,
+        variables: &DefaultVariables<T>,
         tol_infeas_abs: T,
         tol_infeas_rel: T,
     ) -> bool {
+        println!("{}",residuals.dot_bz);
         (residuals.dot_bz < -tol_infeas_abs)
-            && (self.res_primal_inf < -tol_infeas_rel * residuals.dot_bz)
+            && (residuals.rx_inf.norm() < -tol_infeas_rel * (T::one()).max(variables.x.norm() + variables.z.norm()) * residuals.dot_bz)
     }
 
     fn is_dual_infeasible(
         &self,
         residuals: &DefaultResiduals<T>,
+        variables: &DefaultVariables<T>,
         tol_infeas_abs: T,
         tol_infeas_rel: T,
     ) -> bool {
         (residuals.dot_qx < -tol_infeas_abs)
-            && (self.res_dual_inf < -tol_infeas_rel * residuals.dot_qx)
+            && ((residuals.Px.norm() < -tol_infeas_rel * (T::one()).max(variables.x.norm()) * residuals.dot_bz) &&
+                 residuals.rz_inf.norm() < -tol_infeas_rel * (T::one()).max(variables.x.norm() + variables.s.norm()) * residuals.dot_qx )
     }
 }

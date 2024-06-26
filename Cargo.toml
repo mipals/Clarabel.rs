@@ -136,7 +136,9 @@ name = "json"
 path = "examples/rust/example_json.rs"
 required-features = ["serde"]
 
-
+[[example]]
+name = "cvxpy"
+path = "examples/rust/example_cvxpy.rs"
 
 
 # -------------------------------
