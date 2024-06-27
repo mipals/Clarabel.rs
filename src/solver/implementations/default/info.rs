@@ -344,7 +344,6 @@ where
         tol_infeas_abs: T,
         tol_infeas_rel: T,
     ) -> bool {
-        println!("{}",residuals.dot_bz);
         (residuals.dot_bz < -tol_infeas_abs)
             && (residuals.rx_inf.norm() < -tol_infeas_rel * (T::one()).max(variables.x.norm() + variables.z.norm()) * residuals.dot_bz)
     }
